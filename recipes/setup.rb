@@ -4,6 +4,7 @@ include_recipe "opsworks_sidekiq::service"
 
 # setup sidekiq service per app
 node[:deploy].each do |application, deploy|
+  Chef::Log.debug("Setting up Sidekiq for #{application}")
 
   if deploy[:application_type] != 'rails'
     Chef::Log.debug("Skipping opsworks_sidekiq::setup application #{application} as it is not a Rails app")
@@ -30,6 +31,7 @@ node[:deploy].each do |application, deploy|
   if node[:sidekiq][application]
 
     workers = node[:sidekiq][application].to_hash.reject { |k,v| k.to_s =~ /restart_command|syslog/ }
+    Chef::Log.debug("Found #{workers.keys.count} workers")
 
     config_directory = "#{deploy[:deploy_to]}/shared/config"
 
@@ -52,7 +54,7 @@ node[:deploy].each do |application, deploy|
       # indentation. (queues: to :queues:)
       yaml = yaml.gsub(/^(\s*)([^:][^\s]*):/,'\1:\2:')
 
-      Chef::Log.info("deploying #{worker} to #{config_directory}/sidekiq_#{worker}*.yml")
+      Chef::Log.debug("Deploying #{worker} to #{config_directory}/sidekiq_#{worker}*.yml")
 
       (options[:process_count] || 1).times do |n|
         file "#{config_directory}/sidekiq_#{worker}#{n+1}.yml" do
@@ -75,5 +77,7 @@ node[:deploy].each do |application, deploy|
       notifies :reload, resources(:service => "monit"), :immediately
     end
 
+  else
+    Chef::Log.debug("No Sidekiq settings found for #{application}")
   end
 end
